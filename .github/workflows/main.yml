@@ -1,7 +1,7 @@
 name: One‑time M3U8 Size Check
 
 on:
-  workflow_dispatch:    # manual trigger only – perfect for one‑time
+  workflow_dispatch:    # manual trigger only
 
 jobs:
   check-size:
@@ -19,6 +19,4 @@ jobs:
         run: pip install requests
 
       - name: Run size checker
-        env:
-          M3U8_URL: ${{ secrets.M3U8_URL }}   # or paste URL directly below
         run: python check_m3u8_size.py
