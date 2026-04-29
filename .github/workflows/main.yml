@@ -1,0 +1,24 @@
+name: One‑time M3U8 Size Check
+
+on:
+  workflow_dispatch:    # manual trigger only – perfect for one‑time
+
+jobs:
+  check-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run size checker
+        env:
+          M3U8_URL: ${{ secrets.M3U8_URL }}   # or paste URL directly below
+        run: python check_m3u8_size.py
