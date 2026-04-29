@@ -2,7 +2,7 @@ import os
 import requests
 from urllib.parse import urljoin
 
-M3U8_URL = os.getenv('M3U8_URL', 'https://your-stream-url-here.m3u8')  # or paste directly
+M3U8_URL = os.getenv('M3U8_URL', 'https://d3stzm2eumvgb4.cloudfront.net/572ed3070a5b868a3534_spear_shot_316589965666_1777472867/720p60/index-muted-LPI91TX0ET.m3u8')  # or paste directly
 
 def get_total_size(m3u8_url):
     resp = requests.get(m3u8_url)
