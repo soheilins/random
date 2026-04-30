@@ -1,0 +1,51 @@
+name: Download Large File, Split, and Commit to Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_url:
+        description: 'Direct download URL of the large file'
+        required: true
+
+jobs:
+  split-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create timestamped folder name (MMDDHHMMSS)
+        id: timestamp
+        run: |
+          TS=$(date +'%m%d%H%M%S')
+          echo "folder_name=$TS" >> $GITHUB_OUTPUT
+          echo "Created folder: $TS"
+
+      - name: Download large file into timestamped folder
+        run: |
+          mkdir -p "${{ steps.timestamp.outputs.folder_name }}"
+          curl -k -L --max-redirs 50 \
+            -A "Mozilla/5.0 ..." \
+            -c cookies.txt -b cookies.txt \
+            -o "${{ steps.timestamp.outputs.folder_name }}/downloaded_file" \
+            "${{ github.event.inputs.file_url }}"
+
+      - name: Split into 95MB chunks and remove the original large file
+        run: |
+          mkdir -p "${{ steps.timestamp.outputs.folder_name }}/chunks"
+          split -b 95M \
+            "${{ steps.timestamp.outputs.folder_name }}/downloaded_file" \
+            "${{ steps.timestamp.outputs.folder_name }}/chunks/chunk_"
+          # Remove the original large file to stay under GitHub's 100MB limit
+          rm "${{ steps.timestamp.outputs.folder_name }}/downloaded_file"
+
+      - name: Commit and push the new folder (chunks only)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.timestamp.outputs.folder_name }}"
+          git commit -m "Add ${{ steps.timestamp.outputs.folder_name }} from ${{ github.event.inputs.file_url }}" || echo "No changes"
+          git push
