@@ -33,16 +33,23 @@ jobs:
             -o "${{ steps.timestamp.outputs.folder_name }}/downloaded_file" \
             "${{ github.event.inputs.file_url }}"
 
-      - name: Split into 95MB chunks and remove the original large file
+      - name: Check file size and either split or rename
         run: |
-          mkdir -p "${{ steps.timestamp.outputs.folder_name }}/chunks"
-          split -b 95M \
-            "${{ steps.timestamp.outputs.folder_name }}/downloaded_file" \
-            "${{ steps.timestamp.outputs.folder_name }}/chunks/chunk_"
-          # Remove the original large file to stay under GitHub's 100MB limit
-          rm "${{ steps.timestamp.outputs.folder_name }}/downloaded_file"
+          FOLDER="${{ steps.timestamp.outputs.folder_name }}"
+          FILE_PATH="$FOLDER/downloaded_file"
+          SIZE_MB=$(du -m "$FILE_PATH" | cut -f1)
 
-      - name: Commit and push the new folder (chunks only)
+          if [ "$SIZE_MB" -lt 95 ]; then
+            echo "File is ${SIZE_MB}MB (<95MB) – keeping as single file named after folder"
+            mv "$FILE_PATH" "$FOLDER/$FOLDER"
+          else
+            echo "File is ${SIZE_MB}MB (>=95MB) – splitting into 95MB chunks"
+            mkdir -p "$FOLDER/chunks"
+            split -b 95M "$FILE_PATH" "$FOLDER/chunks/chunk_"
+            rm "$FILE_PATH"
+          fi
+
+      - name: Commit and push the new folder
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
