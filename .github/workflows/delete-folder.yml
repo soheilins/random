@@ -1,0 +1,31 @@
+name: Delete Folder
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder_name:
+        description: 'Name of the folder to delete (e.g., 0504233439)'
+        required: true
+
+jobs:
+  delete-folder:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Delete the specified folder
+        run: |
+          if [ -d "${{ github.event.inputs.folder_name }}" ]; then
+            git rm -rf "${{ github.event.inputs.folder_name }}"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Delete folder ${{ github.event.inputs.folder_name }} after download"
+            git push
+            echo "✅ Folder ${{ github.event.inputs.folder_name }} deleted."
+          else
+            echo "⚠️ Folder ${{ github.event.inputs.folder_name }} not found – nothing to delete."
+          fi
