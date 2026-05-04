@@ -6,6 +6,9 @@ on:
       file_url:
         description: 'Direct download URL of the large file'
         required: true
+      folder_name:
+        description: 'Timestamp folder name (MMDDHHMMSS) provided by Python script'
+        required: true
 
 jobs:
   split-and-commit:
@@ -17,25 +20,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create timestamped folder name (MMDDHHMMSS)
-        id: timestamp
+      - name: Download large file into the specified folder
         run: |
-          TS=$(date +'%m%d%H%M%S')
-          echo "folder_name=$TS" >> $GITHUB_OUTPUT
-          echo "Created folder: $TS"
-
-      - name: Download large file into timestamped folder
-        run: |
-          mkdir -p "${{ steps.timestamp.outputs.folder_name }}"
-          curl -k -L --max-redirs 50 \
+          mkdir -p "${{ github.event.inputs.folder_name }}"
+          curl --fail -k -L --max-redirs 50 \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
             -c cookies.txt -b cookies.txt \
-            -o "${{ steps.timestamp.outputs.folder_name }}/downloaded_file" \
+            -o "${{ github.event.inputs.folder_name }}/downloaded_file" \
             "${{ github.event.inputs.file_url }}"
 
       - name: Check file size and either split or rename
         run: |
-          FOLDER="${{ steps.timestamp.outputs.folder_name }}"
+          FOLDER="${{ github.event.inputs.folder_name }}"
           FILE_PATH="$FOLDER/downloaded_file"
           SIZE_MB=$(du -m "$FILE_PATH" | cut -f1)
 
@@ -53,6 +49,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "${{ steps.timestamp.outputs.folder_name }}"
-          git commit -m "Add ${{ steps.timestamp.outputs.folder_name }} from ${{ github.event.inputs.file_url }}" || echo "No changes"
+          git add "${{ github.event.inputs.folder_name }}"
+          git commit -m "Add ${{ github.event.inputs.folder_name }} from ${{ github.event.inputs.file_url }}" || echo "No changes"
           git push
