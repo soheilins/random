@@ -1,0 +1,118 @@
+name: Download from Gofile, Split, and Commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      gofile_url:
+        description: 'Gofile.io link (e.g. https://gofile.io/d/oOHHQ6)'
+        required: true
+
+jobs:
+  split-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create timestamped folder name (MMDDHHMMSS)
+        id: timestamp
+        run: |
+          TS=$(date +'%m%d%H%M%S')
+          echo "folder_name=$TS" >> $GITHUB_OUTPUT
+          echo "Created folder: $TS"
+
+      - name: Extract content ID from Gofile URL
+        id: extract
+        run: |
+          URL="${{ github.event.inputs.gofile_url }}"
+          CONTENT_ID=$(echo "$URL" | sed -n 's|.*/d/\([^/?]*\).*|\1|p')
+          if [ -z "$CONTENT_ID" ]; then
+            echo "Error: Could not extract content ID from URL"
+            exit 1
+          fi
+          echo "content_id=$CONTENT_ID" >> $GITHUB_OUTPUT
+          echo "Extracted content ID: $CONTENT_ID"
+
+      - name: Create Gofile guest account (get token)
+        id: token
+        run: |
+          RESPONSE=$(curl -s -X POST https://api.gofile.io/accounts)
+          TOKEN=$(echo "$RESPONSE" | jq -r '.data.token')
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Error: Failed to obtain guest token"
+            exit 1
+          fi
+          echo "guest_token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Fetch file information from Gofile API
+        id: fileinfo
+        run: |
+          CONTENT_ID="${{ steps.extract.outputs.content_id }}"
+          TOKEN="${{ steps.token.outputs.guest_token }}"
+          API_URL="https://api.gofile.io/contents/$CONTENT_ID?token=$TOKEN"
+          RESPONSE=$(curl -s "$API_URL")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          if [ "$STATUS" != "ok" ]; then
+            echo "Error: Gofile API returned status $STATUS"
+            exit 1
+          fi
+
+          # Assume there is exactly one file in the content
+          # If multiple, we take the first one (adjust as needed)
+          CHILDREN=$(echo "$RESPONSE" | jq '.data.children')
+          FILE_COUNT=$(echo "$CHILDREN" | jq 'length')
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "Error: No files found in this Gofile content"
+            exit 1
+          fi
+          if [ "$FILE_COUNT" -gt 1 ]; then
+            echo "Warning: Content contains $FILE_COUNT files. Using the first one."
+          fi
+
+          DIRECT_URL=$(echo "$CHILDREN" | jq -r '.[0].link')
+          FILE_NAME=$(echo "$CHILDREN" | jq -r '.[0].name')
+          if [ -z "$DIRECT_URL" ] || [ "$DIRECT_URL" = "null" ]; then
+            echo "Error: Could not extract direct download link"
+            exit 1
+          fi
+
+          echo "direct_url=$DIRECT_URL" >> $GITHUB_OUTPUT
+          echo "file_name=$FILE_NAME" >> $GITHUB_OUTPUT
+          echo "Download URL: $DIRECT_URL"
+
+      - name: Download file from Gofile direct link
+        run: |
+          FOLDER="${{ steps.timestamp.outputs.folder_name }}"
+          mkdir -p "$FOLDER"
+          DIRECT_URL="${{ steps.fileinfo.outputs.direct_url }}"
+          curl -k -L --max-redirs 50 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -o "$FOLDER/downloaded_file" \
+            "$DIRECT_URL"
+
+      - name: Check file size and either split or rename
+        run: |
+          FOLDER="${{ steps.timestamp.outputs.folder_name }}"
+          FILE_PATH="$FOLDER/downloaded_file"
+          SIZE_MB=$(du -m "$FILE_PATH" | cut -f1)
+
+          if [ "$SIZE_MB" -lt 95 ]; then
+            echo "File is ${SIZE_MB}MB (<95MB) – keeping as single file named after folder"
+            mv "$FILE_PATH" "$FOLDER/$FOLDER"
+          else
+            echo "File is ${SIZE_MB}MB (>=95MB) – splitting into 95MB chunks"
+            mkdir -p "$FOLDER/chunks"
+            split -b 95M "$FILE_PATH" "$FOLDER/chunks/chunk_"
+            rm "$FILE_PATH"
+          fi
+
+      - name: Commit and push the new folder
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.timestamp.outputs.folder_name }}"
+          git commit -m "Add ${{ steps.timestamp.outputs.folder_name }} from ${{ github.event.inputs.gofile_url }}" || echo "No changes"
+          git push
