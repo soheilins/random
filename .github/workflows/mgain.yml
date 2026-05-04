@@ -24,94 +24,18 @@ jobs:
           echo "folder_name=$TS" >> $GITHUB_OUTPUT
           echo "Created folder: $TS"
 
-      - name: Extract content ID from Gofile URL
-        id: extract
+      - name: Install yt-dlp (supports Gofile)
         run: |
-          URL="${{ github.event.inputs.gofile_url }}"
-          CONTENT_ID=$(echo "$URL" | sed -n 's|.*/d/\([^/?]*\).*|\1|p')
-          if [ -z "$CONTENT_ID" ]; then
-            echo "Error: Could not extract content ID from URL"
-            exit 1
-          fi
-          echo "content_id=$CONTENT_ID" >> $GITHUB_OUTPUT
-          echo "Extracted content ID: $CONTENT_ID"
+          pip install yt-dlp
 
-      - name: Create Gofile guest account (get token)
-        id: token
-        run: |
-          RESPONSE=$(curl -s -X POST https://api.gofile.io/accounts)
-          echo "API response: $RESPONSE"
-          TOKEN=$(echo "$RESPONSE" | jq -r '.data.token')
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "Error: Failed to obtain guest token"
-            exit 1
-          fi
-          echo "guest_token=$TOKEN" >> $GITHUB_OUTPUT
-
-      - name: Try to get direct download URL via API
-        id: api_download
-        continue-on-error: true
-        run: |
-          CONTENT_ID="${{ steps.extract.outputs.content_id }}"
-          TOKEN="${{ steps.token.outputs.guest_token }}"
-          API_URL="https://api.gofile.io/contents/$CONTENT_ID"
-          RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_URL")
-          echo "API response: $RESPONSE"
-          STATUS=$(echo "$RESPONSE" | jq -r '.status')
-          if [ "$STATUS" != "ok" ]; then
-            echo "API method failed: $STATUS"
-            exit 1
-          fi
-          CHILDREN=$(echo "$RESPONSE" | jq '.data.children')
-          FILE_COUNT=$(echo "$CHILDREN" | jq 'length')
-          if [ "$FILE_COUNT" -eq 0 ]; then
-            echo "Error: No files found"
-            exit 1
-          fi
-          DIRECT_URL=$(echo "$CHILDREN" | jq -r '.[0].link')
-          FILE_NAME=$(echo "$CHILDREN" | jq -r '.[0].name')
-          echo "direct_url=$DIRECT_URL" >> $GITHUB_OUTPUT
-          echo "file_name=$FILE_NAME" >> $GITHUB_OUTPUT
-
-      - name: Fallback – scrape direct URL from HTML page
-        if: steps.api_download.outcome == 'failure'
-        id: html_download
-        run: |
-          CONTENT_ID="${{ steps.extract.outputs.content_id }}"
-          PAGE_URL="https://gofile.io/d/$CONTENT_ID"
-          # Fetch the HTML page
-          HTML=$(curl -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$PAGE_URL")
-          # Extract the 'data-file-id' and website token from the page
-          FILE_ID=$(echo "$HTML" | grep -oP 'data-file-id="\K[^"]+' | head -1)
-          WEBSITE_TOKEN=$(echo "$HTML" | grep -oP 'data-website-token="\K[^"]+' | head -1)
-          if [ -z "$FILE_ID" ] || [ -z "$WEBSITE_TOKEN" ]; then
-            echo "Could not extract file-id or website-token from HTML"
-            exit 1
-          fi
-          # Use the internal API endpoint with the website token
-          DIRECT_URL="https://api.gofile.io/getFile?fileId=$FILE_ID&token=$WEBSITE_TOKEN"
-          RESPONSE=$(curl -s "$DIRECT_URL")
-          DOWNLOAD_LINK=$(echo "$RESPONSE" | jq -r '.data.downloadLink')
-          if [ -z "$DOWNLOAD_LINK" ] || [ "$DOWNLOAD_LINK" = "null" ]; then
-            echo "Failed to get download link via fallback method"
-            exit 1
-          fi
-          echo "direct_url=$DOWNLOAD_LINK" >> $GITHUB_OUTPUT
-          echo "file_name=$(basename "$DOWNLOAD_LINK" | sed 's/?.*//')" >> $GITHUB_OUTPUT
-
-      - name: Download file
+      - name: Download file from Gofile using yt-dlp
         run: |
           FOLDER="${{ steps.timestamp.outputs.folder_name }}"
           mkdir -p "$FOLDER"
-          DIRECT_URL="${{ steps.api_download.outputs.direct_url || steps.html_download.outputs.direct_url }}"
-          if [ -z "$DIRECT_URL" ]; then
-            echo "No direct download URL available"
-            exit 1
-          fi
-          curl -k -L --max-redirs 50 \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-            -o "$FOLDER/downloaded_file" \
-            "$DIRECT_URL"
+          yt-dlp \
+            --no-playlist \
+            --output "$FOLDER/downloaded_file" \
+            "${{ github.event.inputs.gofile_url }}"
 
       - name: Check file size and either split or rename
         run: |
